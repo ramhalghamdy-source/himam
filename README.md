@@ -30,6 +30,20 @@ This creates the full hackathon story:
 
 `Assess → Understand → Map to Work → Train → Adapt → Reassess`
 
+## v0.6 — Language, brand and home-practice motivation
+
+Nothing in the assessment or training engine changed. This version only adds:
+
+- **Arabic / English toggle** in the top bar (full RTL layout, choice remembered between visits)
+- **HIMAM logo** in the header, favicon and notification icon
+- **Practice streak line** directly under the header on every screen — a slim line, not a card:
+  flame + streak count · this week's 7 days · weekly-goal progress · one "Practice now" action · reminder
+- **Home practice plan** under the Training lab: weekly-goal ring, current/best streak, 4-week consistency grid,
+  weekly goal (3/4/5/7 days) and a daily reminder (in-app, browser notification, or a recurring calendar `.ics`)
+- A short **celebration** when a training session is saved, and a **home-practice adherence** panel in the Coach view
+
+Streak data is stored only in the browser (`localStorage`); the demo pathway seeds an illustrative history.
+
 ## Assessment engine
 
 ### Test 01 — Reach & Target
