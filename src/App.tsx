@@ -1,8 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ReachAssessment } from './components/ReachAssessment';
 import { HandAssessment } from './components/HandAssessment';
 import { DigitalAssessment } from './components/DigitalAssessment';
 import { AdaptivePrecisionTraining } from './components/AdaptivePrecisionTraining';
+import { LanguageToggle } from './components/LanguageToggle';
+import { StreakLine } from './components/StreakLine';
+import { PracticePlan } from './components/PracticePlan';
+import { WeekGrid } from './components/WeekGrid';
+import { useI18n } from './i18n';
+import type { TKey } from './i18n/translations';
+import { usePractice } from './lib/PracticeContext';
 import type { TrainingSessionResult } from './lib/adaptiveTraining';
 import {
   calculateWorkReadiness,
@@ -18,31 +25,11 @@ type WorkGoal = 'office' | 'sorting' | 'manual';
 const GOALS: Array<{
   id: WorkGoal;
   number: string;
-  title: string;
-  subtitle: string;
   readinessId: 'office' | 'sorting' | 'assembly';
 }> = [
-  {
-    id: 'office',
-    number: '01',
-    title: 'Office & computer work',
-    subtitle: 'Mouse, keyboard, documents and digital tasks',
-    readinessId: 'office',
-  },
-  {
-    id: 'sorting',
-    number: '02',
-    title: 'Sorting & packaging',
-    subtitle: 'Reach, object handling and coordinated placement',
-    readinessId: 'sorting',
-  },
-  {
-    id: 'manual',
-    number: '03',
-    title: 'Fine manual tasks',
-    subtitle: 'Precision, hand control and small-object handling',
-    readinessId: 'assembly',
-  },
+  { id: 'office', number: '01', readinessId: 'office' },
+  { id: 'sorting', number: '02', readinessId: 'sorting' },
+  { id: 'manual', number: '03', readinessId: 'assembly' },
 ];
 
 const DEMO_REACH: ReachMetrics = {
@@ -86,6 +73,8 @@ function clampScore(value: number) {
 }
 
 function App() {
+  const { t, tp } = useI18n();
+  const { stats, state: practiceState, logSession, seedDemo, resetHistory } = usePractice();
   const [view, setView] = useState<AppView>('welcome');
   const [activeTest, setActiveTest] = useState<ActiveTest>('reach');
   const [goal, setGoal] = useState<WorkGoal | null>(null);
@@ -94,6 +83,21 @@ function App() {
   const [handResult, setHandResult] = useState<HandMetrics | null>(null);
   const [digitalResult, setDigitalResult] = useState<DigitalMetrics | null>(null);
   const [trainingSessions, setTrainingSessions] = useState<TrainingSessionResult[]>([]);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastPending = useRef(false);
+
+  // After a training session is saved, celebrate the new streak / weekly goal for a few seconds.
+  useEffect(() => {
+    if (!toastPending.current) return;
+    toastPending.current = false;
+    const text = stats.goalReached && stats.weekDone === stats.weeklyGoal
+      ? t('pp.earned.goal')
+      : t('pp.earned.streak', { streak: tp('streak.count', stats.currentStreak) });
+    setToast(text);
+    const id = window.setTimeout(() => setToast(null), 4200);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stats.totalSessions]);
 
   const coordinationScore = useMemo(() => {
     if (!reachResult || !handResult) return null;
@@ -130,6 +134,7 @@ function App() {
     : null;
 
   const selectedGoal = GOALS.find((item) => item.id === goal) ?? GOALS[0];
+  const selectedGoalTitle = t(`goal.${selectedGoal.id}.title` as TKey);
   const selectedReadiness = readiness.find((item) => item.id === selectedGoal.readinessId) ?? readiness[0];
   const progressHistory = functionalIndex == null
     ? []
@@ -155,6 +160,7 @@ function App() {
     setHandResult(DEMO_HAND);
     setDigitalResult(DEMO_DIGITAL);
     setDemoMode(true);
+    seedDemo();
     setView('results');
   }
 
@@ -166,8 +172,18 @@ function App() {
     setDemoMode(false);
     setActiveTest('reach');
     setGoal(null);
+    if (practiceState.demo) resetHistory();
     setView('welcome');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function practiceNow() {
+    if (functionalProfile) {
+      openTrainingModule();
+    } else {
+      setView('welcome');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }
 
   function openTrainingModule() {
@@ -188,69 +204,69 @@ function App() {
   return (
     <main className={`app-shell view-${view}`}>
       <header className="topbar">
-        <button className="brand-button" onClick={() => setView('welcome')} aria-label="HIMAM home">
-          <div className="brand-mark">هـ</div>
+        <button className="brand-button" onClick={() => setView('welcome')} aria-label={t('brand.homeAria')}>
+          <img className="brand-logo" src={`${import.meta.env.BASE_URL}logo.png`} alt="" width={44} height={44} />
           <div className="brand-copy">
             <strong>هِمَم · HIMAM</strong>
-            <span>Adaptive Motor-to-Work Intelligence</span>
+            <span>{t('brand.tagline')}</span>
           </div>
         </button>
 
         {view !== 'welcome' && (
-          <nav className="app-nav" aria-label="Prototype sections">
-            <button className={view === 'assessment' ? 'active' : ''} onClick={() => setView('assessment')}>Assessment</button>
-            <button disabled={!functionalProfile} className={view === 'results' ? 'active' : ''} onClick={() => setView('results')}>Results</button>
-            <button disabled={!functionalProfile} className={view === 'training' ? 'active' : ''} onClick={() => setView('training')}>Training</button>
-            <button disabled={!functionalProfile} className={view === 'coach' ? 'active' : ''} onClick={() => setView('coach')}>Coach</button>
+          <nav className="app-nav" aria-label={t('nav.aria')}>
+            <button className={view === 'assessment' ? 'active' : ''} onClick={() => setView('assessment')}>{t('nav.assessment')}</button>
+            <button disabled={!functionalProfile} className={view === 'results' ? 'active' : ''} onClick={() => setView('results')}>{t('nav.results')}</button>
+            <button disabled={!functionalProfile} className={view === 'training' ? 'active' : ''} onClick={() => setView('training')}>{t('nav.training')}</button>
+            <button disabled={!functionalProfile} className={view === 'coach' ? 'active' : ''} onClick={() => setView('coach')}>{t('nav.coach')}</button>
           </nav>
         )}
 
         <div className="topbar-actions">
-          {demoMode && <span className="demo-live-tag">Demo data</span>}
-          <div className="prototype-tag">Hackathon MVP · v0.5</div>
+          {demoMode && <span className="demo-live-tag">{t('tag.demo')}</span>}
+          <div className="prototype-tag">{t('tag.proto')}</div>
+          <LanguageToggle />
         </div>
       </header>
+
+      <StreakLine hasProfile={Boolean(functionalProfile)} onPractice={practiceNow} />
 
       {view === 'welcome' && (
         <>
           <section className="welcome-hero">
             <div className="welcome-copy">
-              <div className="eyebrow">Movement → Ability → Opportunity</div>
-              <h1>Measure ability.<br />Build the path back.</h1>
-              <p>
-                HIMAM uses short camera and digital tasks to translate functional performance into an
-                explainable work-task profile, then identifies what to train next.
-              </p>
+              <div className="eyebrow">{t('welcome.eyebrow')}</div>
+              <h1>{t('welcome.h1a')}<br />{t('welcome.h1b')}</h1>
+              <p>{t('welcome.p')}</p>
               <div className="value-row">
-                <div><strong>3</strong><span>short assessments</span></div>
-                <div><strong>4</strong><span>functional domains</span></div>
-                <div><strong>1</strong><span>personalized next step</span></div>
+                <div><strong>3</strong><span>{t('welcome.value.assessments')}</span></div>
+                <div><strong>4</strong><span>{t('welcome.value.domains')}</span></div>
+                <div><strong>1</strong><span>{t('welcome.value.step')}</span></div>
               </div>
             </div>
 
-            <div className="welcome-visual" aria-label="HIMAM assessment flow">
+            <div className="welcome-visual" aria-label={t('welcome.visual.aria')}>
               <div className="visual-orbit orbit-one" />
               <div className="visual-orbit orbit-two" />
               <div className="visual-center">
                 <span>HIMAM</span>
                 <strong>75</strong>
-                <small>Functional Index</small>
+                <small>{t('welcome.visual.center')}</small>
               </div>
-              <div className="visual-node node-reach"><span>Reach</span><strong>84</strong></div>
-              <div className="visual-node node-hand"><span>Hand</span><strong>52</strong></div>
-              <div className="visual-node node-digital"><span>Digital</span><strong>99</strong></div>
-              <div className="visual-node node-work"><span>Office</span><strong>82</strong></div>
+              <div className="visual-node node-reach"><span>{t('welcome.node.reach')}</span><strong>84</strong></div>
+              <div className="visual-node node-hand"><span>{t('welcome.node.hand')}</span><strong>52</strong></div>
+              <div className="visual-node node-digital"><span>{t('welcome.node.digital')}</span><strong>99</strong></div>
+              <div className="visual-node node-work"><span>{t('welcome.node.work')}</span><strong>82</strong></div>
             </div>
           </section>
 
           <section className="goal-section">
             <div className="section-heading-row">
               <div>
-                <div className="eyebrow">Step 01 · Personal goal</div>
-                <h2>What do you want to get back to?</h2>
-                <p className="section-copy">Choose one work-task goal. HIMAM will still show the full profile, but highlights the route most relevant to you.</p>
+                <div className="eyebrow">{t('goal.eyebrow')}</div>
+                <h2>{t('goal.title')}</h2>
+                <p className="section-copy">{t('goal.copy')}</p>
               </div>
-              <div className="privacy-chip">Camera processing stays in-browser for this MVP</div>
+              <div className="privacy-chip">{t('goal.privacy')}</div>
             </div>
 
             <div className="goal-grid">
@@ -262,8 +278,8 @@ function App() {
                 >
                   <span className="goal-number">{item.number}</span>
                   <div>
-                    <strong>{item.title}</strong>
-                    <p>{item.subtitle}</p>
+                    <strong>{t(`goal.${item.id}.title` as TKey)}</strong>
+                    <p>{t(`goal.${item.id}.sub` as TKey)}</p>
                   </div>
                   <span className="goal-check">{goal === item.id ? '✓' : '→'}</span>
                 </button>
@@ -272,22 +288,22 @@ function App() {
 
             <div className="welcome-actions">
               <button className="primary-btn large-btn" disabled={!goal} onClick={startLiveAssessment}>
-                Start live assessment →
+                {t('welcome.startLive')}
               </button>
               <div className="demo-option">
-                <button className="secondary-btn large-btn" onClick={launchDemo}>Launch judge-safe demo</button>
-                <span>No camera required · loads a complete sample pathway</span>
+                <button className="secondary-btn large-btn" onClick={launchDemo}>{t('welcome.demoBtn')}</button>
+                <span>{t('welcome.demoNote')}</span>
               </div>
             </div>
           </section>
 
           <section className="how-it-works">
-            <div className="eyebrow">The HIMAM pathway</div>
+            <div className="eyebrow">{t('pathway.eyebrow')}</div>
             <div className="pathway-grid">
-              <article><span>01</span><strong>Measure</strong><p>Pose, hand and digital task signals.</p></article>
-              <article><span>02</span><strong>Understand</strong><p>Four transparent functional domains.</p></article>
-              <article><span>03</span><strong>Map</strong><p>Explainable work-task requirement weights.</p></article>
-              <article><span>04</span><strong>Train</strong><p>Adapt difficulty to the person, then reassess.</p></article>
+              <article><span>01</span><strong>{t('pathway.measure')}</strong><p>{t('pathway.measure.d')}</p></article>
+              <article><span>02</span><strong>{t('pathway.understand')}</strong><p>{t('pathway.understand.d')}</p></article>
+              <article><span>03</span><strong>{t('pathway.map')}</strong><p>{t('pathway.map.d')}</p></article>
+              <article><span>04</span><strong>{t('pathway.train')}</strong><p>{t('pathway.train.d')}</p></article>
             </div>
           </section>
         </>
@@ -297,36 +313,36 @@ function App() {
         <>
           <section className="compact-hero">
             <div>
-              <div className="eyebrow">Live assessment · {selectedGoal.title}</div>
-              <h1>Your functional profile starts here.</h1>
-              <p>Three short tasks. No opaque prediction: every score is built from visible task-performance metrics.</p>
+              <div className="eyebrow">{t('assess.eyebrow', { goal: selectedGoalTitle })}</div>
+              <h1>{t('assess.title')}</h1>
+              <p>{t('assess.p')}</p>
             </div>
             <div className="compact-hero-actions">
-              <button className="secondary-btn" onClick={launchDemo}>Use backup demo</button>
-              <div className="completion-ring"><strong>{completedTests}/3</strong><span>complete</span></div>
+              <button className="secondary-btn" onClick={launchDemo}>{t('assess.backupDemo')}</button>
+              <div className="completion-ring"><strong>{completedTests}/3</strong><span>{t('assess.complete')}</span></div>
             </div>
           </section>
 
-          <section className="test-switcher three-tests" aria-label="Assessment navigation">
+          <section className="test-switcher three-tests" aria-label={t('assess.title')}>
             <button className={activeTest === 'reach' ? 'active' : ''} onClick={() => setActiveTest('reach')}>
               <span>{reachResult ? '✓' : '01'}</span>
               <div>
-                <strong>Reach & Target</strong>
-                <small>{reachResult ? `${reachResult.reachScore}/100 complete` : 'Camera + pose'}</small>
+                <strong>{t('test.reach.title')}</strong>
+                <small>{reachResult ? t('test.done', { score: reachResult.reachScore }) : t('test.reach.sub')}</small>
               </div>
             </button>
             <button className={activeTest === 'hand' ? 'active' : ''} onClick={() => setActiveTest('hand')}>
               <span>{handResult ? '✓' : '02'}</span>
               <div>
-                <strong>Pinch & Transfer</strong>
-                <small>{handResult ? `${handResult.handControlScore}/100 complete` : 'Camera + hand landmarks'}</small>
+                <strong>{t('test.hand.title')}</strong>
+                <small>{handResult ? t('test.done', { score: handResult.handControlScore }) : t('test.hand.sub')}</small>
               </div>
             </button>
             <button className={activeTest === 'digital' ? 'active' : ''} onClick={() => setActiveTest('digital')}>
               <span>{digitalResult ? '✓' : '03'}</span>
               <div>
-                <strong>Digital Work</strong>
-                <small>{digitalResult ? `${digitalResult.digitalControlScore}/100 complete` : 'Mouse + drag + typing'}</small>
+                <strong>{t('test.digital.title')}</strong>
+                <small>{digitalResult ? t('test.done', { score: digitalResult.digitalControlScore }) : t('test.digital.sub')}</small>
               </div>
             </button>
           </section>
@@ -337,64 +353,64 @@ function App() {
 
           <section className="assessment-nav-row">
             <div>
-              <span>{completedTests}/3 assessments completed</span>
+              <span>{t('assess.countDone', { n: completedTests })}</span>
               <div className="mini-progress app-progress">
                 <div style={{ width: `${(completedTests / 3) * 100}%` }} />
               </div>
             </div>
             {activeTest === 'reach' && (
-              <button className="secondary-btn" onClick={() => setActiveTest('hand')}>Continue to Hand Control →</button>
+              <button className="secondary-btn" onClick={() => setActiveTest('hand')}>{t('assess.toHand')}</button>
             )}
             {activeTest === 'hand' && (
-              <button className="secondary-btn" onClick={() => setActiveTest('digital')}>Continue to Digital Work →</button>
+              <button className="secondary-btn" onClick={() => setActiveTest('digital')}>{t('assess.toDigital')}</button>
             )}
             {activeTest === 'digital' && !functionalProfile && (
-              <button className="secondary-btn" onClick={() => setActiveTest('reach')}>← Review Reach Test</button>
+              <button className="secondary-btn" onClick={() => setActiveTest('reach')}>{t('assess.backReach')}</button>
             )}
             {functionalProfile && (
-              <button className="primary-btn" onClick={() => setView('results')}>View final results →</button>
+              <button className="primary-btn" onClick={() => setView('results')}>{t('assess.viewResults')}</button>
             )}
           </section>
 
           <section className="next-layer">
             <div className="section-heading-row">
               <div>
-                <div className="eyebrow">Functional profile</div>
-                <h2>Four interpretable domains. One readiness story.</h2>
+                <div className="eyebrow">{t('results.domainsKicker')}</div>
+                <h2>{t('profile.title')}</h2>
               </div>
-              {functionalProfile && <div className="profile-ready-badge">Full profile active</div>}
+              {functionalProfile && <div className="profile-ready-badge">{t('profile.badge')}</div>}
             </div>
 
             <div className="flow-cards profile-cards">
               <article className={reachResult ? '' : 'muted'}>
-                <span>01</span><strong>Reach</strong><small>{reachResult ? `${reachResult.reachScore}/100` : 'Run Test 01'}</small>
+                <span>01</span><strong>{t('domainShort.reach')}</strong><small>{reachResult ? `${reachResult.reachScore}/100` : t('profile.run1')}</small>
               </article>
               <article className={handResult ? '' : 'muted'}>
-                <span>02</span><strong>Hand Control</strong><small>{handResult ? `${handResult.handControlScore}/100` : 'Run Test 02'}</small>
+                <span>02</span><strong>{t('domainShort.hand')}</strong><small>{handResult ? `${handResult.handControlScore}/100` : t('profile.run2')}</small>
               </article>
               <article className={coordinationScore != null ? '' : 'muted'}>
-                <span>03</span><strong>Coordination</strong><small>{coordinationScore != null ? `${coordinationScore}/100 derived` : 'Needs Tests 01 + 02'}</small>
+                <span>03</span><strong>{t('domainShort.coordination')}</strong><small>{coordinationScore != null ? t('profile.derived', { n: coordinationScore }) : t('profile.needs12')}</small>
               </article>
               <article className={digitalResult ? '' : 'muted'}>
-                <span>04</span><strong>Digital Control</strong><small>{digitalResult ? `${digitalResult.digitalControlScore}/100` : 'Run Test 03'}</small>
+                <span>04</span><strong>{t('domainShort.digital')}</strong><small>{digitalResult ? `${digitalResult.digitalControlScore}/100` : t('profile.run3')}</small>
               </article>
             </div>
 
             {functionalProfile ? (
               <div className="combined-summary four-stats">
                 <div>
-                  <div className="eyebrow">Functional profile complete</div>
-                  <h3>HIMAM keeps the domains separate, then maps them transparently to simulated work-task requirements.</h3>
+                  <div className="eyebrow">{t('profile.completeEyebrow')}</div>
+                  <h3>{t('profile.completeText')}</h3>
                 </div>
-                <div className="summary-stat"><span>Reach</span><strong>{functionalProfile.reach}</strong></div>
-                <div className="summary-stat"><span>Hand</span><strong>{functionalProfile.hand}</strong></div>
-                <div className="summary-stat"><span>Coord.</span><strong>{functionalProfile.coordination}</strong></div>
-                <div className="summary-stat"><span>Digital</span><strong>{functionalProfile.digital}</strong></div>
+                <div className="summary-stat"><span>{t('domainShort.reach')}</span><strong>{functionalProfile.reach}</strong></div>
+                <div className="summary-stat"><span>{t('welcome.node.hand')}</span><strong>{functionalProfile.hand}</strong></div>
+                <div className="summary-stat"><span>{t('profile.coordShort')}</span><strong>{functionalProfile.coordination}</strong></div>
+                <div className="summary-stat"><span>{t('welcome.node.digital')}</span><strong>{functionalProfile.digital}</strong></div>
               </div>
             ) : (
               <div className="roadmap-strip">
-                <div><span>Activation rule</span><strong>Complete Tests 01–03</strong></div>
-                <p>The Work Readiness Matrix stays locked until all measured domains are available.</p>
+                <div><span>{t('profile.lockRule')}</span><strong>{t('profile.lockTitle')}</strong></div>
+                <p>{t('profile.lockText')}</p>
               </div>
             )}
           </section>
@@ -405,43 +421,43 @@ function App() {
         <>
           <section className="results-hero">
             <div className="results-hero-copy">
-              <div className="eyebrow">Assessment complete · {demoMode ? 'Demonstration pathway' : 'Live pathway'}</div>
-              <h1>Your ability profile is not one number.</h1>
-              <p>HIMAM shows where performance is already strong, where the selected work goal stands, and the most useful training target to address next.</p>
+              <div className="eyebrow">{t('results.eyebrow', { mode: demoMode ? t('results.modeDemo') : t('results.modeLive') })}</div>
+              <h1>{t('results.title')}</h1>
+              <p>{t('results.p')}</p>
               <div className="results-actions">
-                <button className="primary-btn" onClick={() => setView('coach')}>Open coach dashboard →</button>
-                <button className="secondary-btn" onClick={() => setView('assessment')}>Review assessments</button>
+                <button className="primary-btn" onClick={() => setView('coach')}>{t('results.openCoach')}</button>
+                <button className="secondary-btn" onClick={() => setView('assessment')}>{t('results.review')}</button>
               </div>
             </div>
             <div className="index-card">
-              <span>Functional Index</span>
+              <span>{t('results.indexLabel')}</span>
               <strong>{functionalIndex}</strong>
-              <small>Prototype summary of four task domains</small>
+              <small>{t('results.indexSub')}</small>
               <div className="index-track"><div style={{ width: `${functionalIndex ?? 0}%` }} /></div>
             </div>
           </section>
 
           <section className="result-dashboard-grid">
             <article className="goal-result-card">
-              <div className="card-kicker">Your selected goal</div>
-              <h3>{selectedGoal.title}</h3>
+              <div className="card-kicker">{t('results.goalKicker')}</div>
+              <h3>{selectedGoalTitle}</h3>
               {selectedReadiness && (
                 <>
                   <div className="goal-score-row"><strong>{selectedReadiness.score}</strong><span>/100</span></div>
                   <div className="readiness-bar hero-readiness"><div style={{ width: `${selectedReadiness.score}%` }} /></div>
-                  <p>{selectedReadiness.level}</p>
+                  <p>{t(`level.${selectedReadiness.level}` as TKey)}</p>
                 </>
               )}
-              <small>This is a prototype task-performance indicator, not a fitness-for-work decision.</small>
+              <small>{t('results.goalNote')}</small>
             </article>
 
             <article className="domain-panel">
-              <div className="card-kicker">Functional domains</div>
+              <div className="card-kicker">{t('results.domainsKicker')}</div>
               {([
-                ['Reach', functionalProfile.reach],
-                ['Hand Control', functionalProfile.hand],
-                ['Coordination', functionalProfile.coordination],
-                ['Digital Control', functionalProfile.digital],
+                [t('domainShort.reach'), functionalProfile.reach],
+                [t('domainShort.hand'), functionalProfile.hand],
+                [t('domainShort.coordination'), functionalProfile.coordination],
+                [t('domainShort.digital'), functionalProfile.digital],
               ] as Array<[string, number]>).map(([label, value]) => (
                 <div className="domain-row" key={label}>
                   <span>{label}</span><div><i style={{ width: `${value}%` }} /></div><strong>{value}</strong>
@@ -450,41 +466,41 @@ function App() {
             </article>
 
             <article className="next-step-card">
-              <div className="card-kicker">Recommended next step</div>
-              <span className="priority-label">Priority domain</span>
-              <h3>{training?.label}</h3>
-              <p>{training?.module}</p>
-              <div className="priority-score"><span>Current score</span><strong>{training?.score}</strong></div>
-              <button className="primary-btn light-btn" onClick={openTrainingModule}>Start adaptive training →</button>
+              <div className="card-kicker">{t('results.nextKicker')}</div>
+              <span className="priority-label">{t('results.priority')}</span>
+              <h3>{training && t(`domain.${training.key}` as TKey)}</h3>
+              <p>{training && t(`module.${training.key}` as TKey)}</p>
+              <div className="priority-score"><span>{t('results.currentScore')}</span><strong>{training?.score}</strong></div>
+              <button className="primary-btn light-btn" onClick={openTrainingModule}>{t('results.startTraining')}</button>
             </article>
           </section>
 
           <section className="readiness-section results-readiness">
             <div className="section-heading-row">
               <div>
-                <div className="eyebrow">Motor-to-work layer</div>
-                <h2>Explainable Work Readiness Matrix</h2>
-                <p className="section-copy">Each work-task score is a transparent weighted combination of the four functional domains.</p>
+                <div className="eyebrow">{t('matrix.eyebrow')}</div>
+                <h2>{t('matrix.title')}</h2>
+                <p className="section-copy">{t('matrix.copy')}</p>
               </div>
-              <div className="matrix-status active">Prototype matrix active</div>
+              <div className="matrix-status active">{t('matrix.status')}</div>
             </div>
 
             <div className="readiness-grid">
               {readiness.map((item) => (
                 <article className={`readiness-card ${item.id === selectedGoal.readinessId ? 'goal-highlight' : ''}`} key={item.id}>
                   <div className="readiness-topline">
-                    <span>{item.label}</span>
+                    <span>{t(`readiness.${item.id}` as TKey)}</span>
                     <strong>{item.score}</strong>
                   </div>
                   <div className="readiness-bar"><div style={{ width: `${item.score}%` }} /></div>
-                  <small>{item.level}</small>
+                  <small>{t(`level.${item.level}` as TKey)}</small>
                   <div className="weight-row">
-                    <span>R {Math.round(item.weights.reach * 100)}%</span>
-                    <span>H {Math.round(item.weights.hand * 100)}%</span>
-                    <span>C {Math.round(item.weights.coordination * 100)}%</span>
-                    <span>D {Math.round(item.weights.digital * 100)}%</span>
+                    <span>{t('weight.reach')} {Math.round(item.weights.reach * 100)}%</span>
+                    <span>{t('weight.hand')} {Math.round(item.weights.hand * 100)}%</span>
+                    <span>{t('weight.coordination')} {Math.round(item.weights.coordination * 100)}%</span>
+                    <span>{t('weight.digital')} {Math.round(item.weights.digital * 100)}%</span>
                   </div>
-                  {item.id === selectedGoal.readinessId && <div className="selected-goal-chip">Selected goal</div>}
+                  {item.id === selectedGoal.readinessId && <div className="selected-goal-chip">{t('matrix.selected')}</div>}
                 </article>
               ))}
             </div>
@@ -492,17 +508,17 @@ function App() {
 
           <section className="progress-section">
             <div>
-              <div className="eyebrow">Progress history</div>
-              <h2>Make improvement visible.</h2>
-              <p className="section-copy">The demo shows how longitudinal sessions can turn isolated assessments into a measurable training journey.</p>
+              <div className="eyebrow">{t('history.eyebrow')}</div>
+              <h2>{t('history.title')}</h2>
+              <p className="section-copy">{t('history.copy')}</p>
             </div>
             <div className="progress-card">
-              <div className="progress-header"><span>Functional Index</span><strong>+{progressHistory[3] - progressHistory[0]} pts</strong></div>
+              <div className="progress-header"><span>{t('history.indexLabel')}</span><strong>{t('history.pts', { n: progressHistory[3] - progressHistory[0] })}</strong></div>
               <div className="history-bars">
                 {progressHistory.map((value, index) => (
                   <div className="history-column" key={`${value}-${index}`}>
                     <div className="history-bar-wrap"><div style={{ height: `${value}%` }}><span>{value}</span></div></div>
-                    <small>{index === 0 ? 'Baseline' : `Session ${index + 1}`}</small>
+                    <small>{index === 0 ? t('history.baseline') : t('history.session', { n: index + 1 })}</small>
                   </div>
                 ))}
               </div>
@@ -510,58 +526,62 @@ function App() {
           </section>
 
           <div className="validation-note result-validation">
-            <strong>Validation boundary</strong>
-            <p>
-              HIMAM v0.5 produces task-performance indicators and adaptive training-session metrics inside a hackathon prototype. The current matrix weights and thresholds require future validation with occupational therapists, vocational rehabilitation experts, employers, and real-user data before real-world work-readiness use.
-            </p>
+            <strong>{t('validation.title')}</strong>
+            <p>{t('validation.text')}</p>
           </div>
         </>
       )}
 
       {view === 'training' && functionalProfile && training && (
-        <AdaptivePrecisionTraining
-          initialDomainScore={training.score}
-          focusLabel={training.label}
-          moduleName={training.key === 'hand' ? 'Precision Transfer' : training.key === 'coordination' ? 'Guided Coordination Transfer' : training.key === 'reach' ? 'Guided Reach Transfer' : 'Digital Precision Transfer'}
-          onComplete={(session) => setTrainingSessions((current) => [session, ...current])}
-          onReassess={reassessPriorityDomain}
-          onBack={() => setView('results')}
-        />
+        <>
+          <AdaptivePrecisionTraining
+            initialDomainScore={training.score}
+            domainKey={training.key}
+            onComplete={(session) => {
+              setTrainingSessions((current) => [session, ...current]);
+              toastPending.current = true;
+              logSession();
+            }}
+            onReassess={reassessPriorityDomain}
+            onBack={() => setView('results')}
+          />
+          <PracticePlan />
+        </>
       )}
 
       {view === 'coach' && functionalProfile && (
         <>
           <section className="coach-hero">
             <div>
-              <div className="eyebrow">Coach dashboard · longitudinal view</div>
-              <h1>See the person behind the score.</h1>
-              <p>A compact supervisor view for following performance, training adherence and the next recommended focus.</p>
+              <div className="eyebrow">{t('coach.eyebrow')}</div>
+              <h1>{t('coach.title')}</h1>
+              <p>{t('coach.p')}</p>
             </div>
             <div className="coach-person">
-              <div className="avatar">AR</div>
-              <div><strong>{demoMode ? 'Demo participant' : 'Current participant'}</strong><span>Upper-limb return-to-work pathway</span></div>
+              <div className="avatar">{t('coach.avatar')}</div>
+              <div><strong>{demoMode ? t('coach.demoPerson') : t('coach.livePerson')}</strong><span>{t('coach.pathway')}</span></div>
             </div>
           </section>
 
           <section className="coach-stat-grid">
-            <article><span>Functional Index</span><strong>{functionalIndex}</strong><small>+{progressHistory[3] - progressHistory[0]} points from baseline</small></article>
-            <article><span>Sessions completed</span><strong>{(demoMode ? 8 : completedTests) + trainingSessions.length}</strong><small>{trainingSessions.length ? `${trainingSessions.length} adaptive training session${trainingSessions.length === 1 ? '' : 's'} added` : demoMode ? 'Across 4 weeks' : 'Current assessment set'}</small></article>
-            <article><span>Strongest domain</span><strong>{functionalProfile.digital}</strong><small>Digital Control</small></article>
-            <article><span>Priority domain</span><strong>{training?.score}</strong><small>{training?.label}</small></article>
+            <article><span>{t('coach.stat.index')}</span><strong>{functionalIndex}</strong><small>{t('coach.stat.fromBaseline', { n: progressHistory[3] - progressHistory[0] })}</small></article>
+            <article><span>{t('coach.stat.sessions')}</span><strong>{(demoMode ? 8 : completedTests) + trainingSessions.length}</strong><small>{trainingSessions.length ? t(trainingSessions.length === 1 ? 'coach.stat.sessionAdded' : 'coach.stat.sessionsAdded', { n: trainingSessions.length }) : demoMode ? t('coach.stat.weeks') : t('coach.stat.current')}</small></article>
+            <article><span>{t('coach.stat.strongest')}</span><strong>{functionalProfile.digital}</strong><small>{t('domainShort.digital')}</small></article>
+            <article><span>{t('coach.stat.priority')}</span><strong>{training?.score}</strong><small>{training && t(`domain.${training.key}` as TKey)}</small></article>
           </section>
 
           <section className="coach-main-grid">
             <article className="coach-panel">
-              <div className="panel-heading"><div><span>Performance trend</span><strong>Functional domains</strong></div><small>Current</small></div>
+              <div className="panel-heading"><div><span>{t('coach.trend.kicker')}</span><strong>{t('coach.trend.title')}</strong></div><small>{t('coach.trend.current')}</small></div>
               <div className="coach-domain-list">
                 {([
-                  ['Reach', functionalProfile.reach, '+11'],
-                  ['Hand Control', functionalProfile.hand, '+7'],
-                  ['Coordination', functionalProfile.coordination, '+9'],
-                  ['Digital Control', functionalProfile.digital, '+4'],
+                  [t('domainShort.reach'), functionalProfile.reach, '+11'],
+                  [t('domainShort.hand'), functionalProfile.hand, '+7'],
+                  [t('domainShort.coordination'), functionalProfile.coordination, '+9'],
+                  [t('domainShort.digital'), functionalProfile.digital, '+4'],
                 ] as Array<[string, number, string]>).map(([label, value, delta]) => (
                   <div className="coach-domain-row" key={label}>
-                    <div><strong>{label}</strong><span>{delta} pts</span></div>
+                    <div><strong>{label}</strong><span>{t('coach.delta', { delta })}</span></div>
                     <div className="coach-progress"><i style={{ width: `${value}%` }} /></div>
                     <b>{value}</b>
                   </div>
@@ -570,43 +590,64 @@ function App() {
             </article>
 
             <article className="coach-panel focus-panel">
-              <div className="panel-heading"><div><span>Next focus</span><strong>{training?.label}</strong></div><small>Priority</small></div>
+              <div className="panel-heading"><div><span>{t('coach.focus.kicker')}</span><strong>{training && t(`domain.${training.key}` as TKey)}</strong></div><small>{t('coach.focus.badge')}</small></div>
               <div className="focus-score"><strong>{training?.score}</strong><span>/100</span></div>
-              <p>Recommended module: <b>{training?.module}</b>. Reassess after two successful training sessions to update the functional profile.</p>
-              <button className="primary-btn" onClick={openTrainingModule}>Open adaptive module →</button>
+              <p>{t('coach.focus.recommended')}<b>{training && t(`module.${training.key}` as TKey)}</b>{t('coach.focus.reassess')}</p>
+              <button className="primary-btn" onClick={openTrainingModule}>{t('coach.focus.open')}</button>
             </article>
           </section>
 
           <section className="coach-main-grid lower-coach-grid">
             <article className="coach-panel">
-              <div className="panel-heading"><div><span>Recent activity</span><strong>Session timeline</strong></div><small>Last 4</small></div>
+              <div className="panel-heading"><div><span>{t('coach.activity.kicker')}</span><strong>{t('coach.activity.title')}</strong></div><small>{t('coach.activity.last4')}</small></div>
               <div className="timeline-list">
-                <div><span>Today</span><strong>Full functional reassessment</strong><small>Index {functionalIndex}</small></div>
+                <div><span>{t('coach.tl.today')}</span><strong>{t('coach.tl.fullReassess')}</strong><small>{t('coach.tl.index', { n: functionalIndex ?? 0 })}</small></div>
                 {trainingSessions[0] ? (
-                  <div><span>Training</span><strong>{trainingSessions[0].module}</strong><small>Avg {trainingSessions[0].averageScore} · L{trainingSessions[0].startingLevel}→L{trainingSessions[0].finalLevel}</small></div>
+                  <div><span>{t('coach.tl.training')}</span><strong>{trainingSessions[0].domainKey ? `${t(`moduleName.${trainingSessions[0].domainKey}` as TKey)} · ${t('coach.tl.adaptiveSuffix')}` : trainingSessions[0].module}</strong><small>{t('coach.tl.avgLevels', { avg: trainingSessions[0].averageScore, a: trainingSessions[0].startingLevel, b: trainingSessions[0].finalLevel })}</small></div>
                 ) : (
-                  <div><span>Week 3</span><strong>Precision Transfer · Level 1</strong><small>Completed</small></div>
+                  <div><span>{t('coach.tl.week3')}</span><strong>{t('module.hand')}</strong><small>{t('coach.tl.completed')}</small></div>
                 )}
-                <div><span>Week 2</span><strong>Guided Coordination · Level 1</strong><small>Completed</small></div>
-                <div><span>Baseline</span><strong>Initial functional profile</strong><small>Index {progressHistory[0]}</small></div>
+                <div><span>{t('coach.tl.week2')}</span><strong>{t('coach.tl.guided1')}</strong><small>{t('coach.tl.completed')}</small></div>
+                <div><span>{t('coach.tl.baseline')}</span><strong>{t('coach.tl.initial')}</strong><small>{t('coach.tl.index', { n: progressHistory[0] })}</small></div>
               </div>
             </article>
 
             <article className="coach-panel">
-              <div className="panel-heading"><div><span>Work-task snapshot</span><strong>{selectedGoal.title}</strong></div><small>Selected goal</small></div>
-              <div className="coach-readiness-score"><strong>{selectedReadiness?.score}</strong><span>{selectedReadiness?.level}</span></div>
+              <div className="panel-heading"><div><span>{t('coach.snapshot.kicker')}</span><strong>{selectedGoalTitle}</strong></div><small>{t('coach.snapshot.badge')}</small></div>
+              <div className="coach-readiness-score"><strong>{selectedReadiness?.score}</strong><span>{selectedReadiness && t(`level.${selectedReadiness.level}` as TKey)}</span></div>
               <div className="readiness-bar"><div style={{ width: `${selectedReadiness?.score ?? 0}%` }} /></div>
-              <p className="coach-note">Use as a conversation aid for training planning, not as an employment clearance or clinical diagnosis.</p>
+              <p className="coach-note">{t('coach.snapshot.note')}</p>
             </article>
+          </section>
+
+          <section className="coach-adherence">
+            <div className="coach-adherence-head">
+              <div>
+                <span className="eyebrow">{t('coach.adherence.kicker')}</span>
+                <h3>{t('coach.adherence.title')}</h3>
+                <p>{t('coach.adherence.note')}</p>
+              </div>
+              <div className="coach-adherence-rate">
+                <strong>{stats.adherenceRate}%</strong>
+                <span>{t('coach.adherence.rate', { n: stats.adherenceRate })}</span>
+              </div>
+            </div>
+            <WeekGrid weeks={stats.weeks} />
           </section>
         </>
       )}
 
       {view !== 'welcome' && (
         <footer className="app-footer">
-          <div><strong>هِمَم · HIMAM</strong><span>Hackathon prototype · Task-performance indicators only</span></div>
-          <button className="text-reset" onClick={resetAssessment}>Reset prototype</button>
+          <div><strong>هِمَم · HIMAM</strong><span>{t('footer.note')}</span></div>
+          <button className="text-reset" onClick={resetAssessment}>{t('footer.reset')}</button>
         </footer>
+      )}
+
+      {toast && (
+        <div className="earned-toast" role="status" aria-live="polite">
+          <span aria-hidden="true">🔥</span> {toast}
+        </div>
       )}
     </main>
   );
