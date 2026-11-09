@@ -1,3 +1,5 @@
+import type { TKey } from '../i18n/translations';
+
 export type TrainingLevel = 1 | 2 | 3 | 4;
 
 export type TrainingTrial = {
@@ -21,10 +23,15 @@ export type TrainingAdaptation = {
   highStreak: number;
   challengeBoost: number;
   action: 'level-up' | 'level-down' | 'challenge-up' | 'hold';
+  /** English text, kept for logs/tests. The UI renders `messageKey` so it follows the language toggle. */
   message: string;
+  messageKey: TKey;
+  messageParams?: Record<string, string | number>;
 };
 
 export type TrainingSessionResult = {
+  /** which functional domain this session trained (used to localize labels) */
+  domainKey?: 'reach' | 'hand' | 'coordination' | 'digital';
   module: string;
   focus: string;
   startingLevel: TrainingLevel;
@@ -119,6 +126,8 @@ export function adaptTrainingDifficulty(args: {
         challengeBoost: 0,
         action: 'level-up',
         message: `Two strong rounds ≥85: advanced to Level ${level}. Target size decreases and travel demand increases.`,
+        messageKey: 'ad.levelUp',
+        messageParams: { level },
       };
     }
 
@@ -129,6 +138,7 @@ export function adaptTrainingDifficulty(args: {
       challengeBoost,
       action: 'challenge-up',
       message: 'Strong round: same level, with a slightly smaller target and longer transfer next round.',
+      messageKey: 'ad.strong',
     };
   }
 
@@ -142,6 +152,7 @@ export function adaptTrainingDifficulty(args: {
       challengeBoost,
       action: 'challenge-up',
       message: 'Stable performance: level held while the next round becomes slightly more demanding.',
+      messageKey: 'ad.stable',
     };
   }
 
@@ -153,6 +164,7 @@ export function adaptTrainingDifficulty(args: {
       challengeBoost,
       action: 'hold',
       message: 'Practice zone: difficulty held to reinforce control before adding more demand.',
+      messageKey: 'ad.practice',
     };
   }
 
@@ -164,6 +176,8 @@ export function adaptTrainingDifficulty(args: {
       challengeBoost: 0,
       action: 'level-down',
       message: `Performance dropped below 50: moved to Level ${level} to rebuild successful repetitions.`,
+      messageKey: 'ad.levelDown',
+      messageParams: { level },
     };
   }
 
@@ -173,5 +187,6 @@ export function adaptTrainingDifficulty(args: {
     challengeBoost: 0,
     action: 'hold',
     message: 'Foundation level held. The goal is clean, successful repetitions before increasing difficulty.',
+    messageKey: 'ad.foundation',
   };
 }
