@@ -85,7 +85,6 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
     try {
       new Notification(tRef.current('pp.notif.title'), {
         body: tRef.current('pp.notif.body'),
-        icon: `${import.meta.env.BASE_URL}logo.png`,
         tag: 'himam-practice',
       });
     } catch {

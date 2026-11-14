@@ -1062,3 +1062,58 @@ h2 { margin: 8px 0 10px; font-size: clamp(28px, 3vw, 44px); letter-spacing: -.03
   .round-overlay > strong { font-size: 86px; }
   .adaptive-object { width: 58px; height: 58px; border-radius: 20px; }
 }
+
+
+/* Restored v0.6 UI: language, home-practice adherence and weekly habit. */
+.brand-placeholder { width:44px; height:44px; border-radius:14px; background:linear-gradient(135deg,#214d43,#20a98a); color:white; display:inline-flex; align-items:center; justify-content:center; font-size:23px; font-weight:850; flex-shrink:0; }
+.language-toggle { display:inline-flex; border:1px solid #dae9e5; background:white; border-radius:12px; padding:3px; gap:2px; }
+.language-toggle button { appearance:none; border:0; background:transparent; padding:7px 9px; cursor:pointer; color:#526c66; font-size:11px; font-weight:800; border-radius:9px; }
+.language-toggle button.selected { background:#173f3a; color:white; }
+.streak-line { display:flex; align-items:center; gap:12px; flex-wrap:wrap; background:#f6fbf8; border:1px solid #dcebe5; border-radius:15px; padding:10px 16px; margin:12px 0 23px; color:#173f3a; font-size:12px; }
+.streak-line .streak-fire { font-size:18px; }
+.streak-week { display:flex; align-items:center; gap:5px; }
+.streak-dot { display:inline-block; width:12px; height:12px; border-radius:50%; border:1px solid #bdd4ca; background:white; }
+.streak-dot.done { background:#18ad84; border-color:#18ad84; }
+.streak-dot.today { outline:2px solid #1a8669; outline-offset:2px; }
+.streak-progress,.streak-reminder { color:#648179; }
+.streak-achieved { color:#0b8d61; font-weight:700; }
+.streak-cta { margin-inline-start:auto; cursor:pointer; border:0; background:#173f3a; color:white; border-radius:10px; padding:10px 15px; font-weight:750; }
+.home-practice-plan { margin:24px 0; padding:24px; border:1px solid #dcebe6; border-radius:24px; background:#f8fcfa; color:#173f3a; }
+.practice-plan-title { display:flex; justify-content:space-between; gap:24px; align-items:center; margin-bottom:20px; }
+.practice-plan-title h2 { margin:5px 0 8px; font-size:25px; }
+.practice-plan-title p { color:#647e75; margin:0; }
+.practice-goal-ring { width:100px; height:100px; display:grid; place-items:center; border-radius:50%; flex:none; }
+.practice-goal-ring > div { width:78px; height:78px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-direction:column; background:white; }
+.practice-goal-ring strong { font-size:24px; line-height:1.2; }
+.practice-goal-ring small { color:#709085; }
+.practice-plan-layout { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.practice-plan-panel { border:1px solid #e1ece7; border-radius:17px; padding:18px; background:white; }
+.practice-plan-panel h3 { margin:0 0 16px; }
+.practice-mini-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin-bottom:19px; }
+.practice-mini-stats > div { background:#f3faf7; padding:13px; border-radius:12px; display:flex; flex-direction:column; gap:6px; }
+.practice-mini-stats strong { font-size:27px; }
+.practice-mini-stats span { color:#658379; font-size:11px; }
+.practice-form-label { display:block; font-weight:700; font-size:12px; margin-bottom:8px; }
+.practice-plan-panel select,.practice-reminder-controls input[type=time] { border:1px solid #cdded6; border-radius:11px; padding:9px 12px; background:white; color:#173f3a; }
+.practice-reminder-toggle { display:flex; gap:9px; align-items:center; margin-top:18px; font-size:12px; font-weight:700; }
+.practice-reminder-controls { display:flex; gap:9px; align-items:center; flex-wrap:wrap; margin-top:14px; }
+.practice-week-grid { max-width:440px; display:grid; gap:8px; }
+.practice-week-row { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:8px; }
+.practice-week-row > span { min-width:0; text-align:center; }
+.practice-days-head { color:#769188; font-size:11px; }
+.practice-day { height:17px; border-radius:5px; border:1px solid #e1e9e5; background:#edf2ef; }
+.practice-day.done { background:#14ac82; border-color:#14ac82; }
+.practice-day.today { outline:2px solid #187e63; outline-offset:1px; }
+.practice-day.future { opacity:.4; }
+.practice-note { font-size:11px; color:#748d84; line-height:1.5; }
+html[dir=rtl] .app-shell { direction:rtl; }
+html[dir=rtl] .streak-line,html[dir=rtl] .home-practice-plan { text-align:right; }
+@media(max-width:720px) {
+ .streak-line { gap:8px; }
+ .streak-cta { margin-inline-start:0; }
+ .practice-plan-layout { grid-template-columns:1fr; }
+ .home-practice-plan { padding:16px; }
+ .practice-goal-ring { width:80px; height:80px; }
+ .practice-goal-ring > div { width:62px; height:62px; }
+ .practice-goal-ring strong { font-size:18px; }
+}
