@@ -205,7 +205,7 @@ function App() {
     <main className={`app-shell view-${view}`}>
       <header className="topbar">
         <button className="brand-button" onClick={() => setView('welcome')} aria-label={t('brand.homeAria')}>
-          <img className="brand-logo" src={`${import.meta.env.BASE_URL}logo.png`} alt="" width={44} height={44} />
+          <span className="brand-placeholder" aria-hidden="true">هـ</span>
           <div className="brand-copy">
             <strong>هِمَم · HIMAM</strong>
             <span>{t('brand.tagline')}</span>
