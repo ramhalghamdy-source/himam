@@ -49,6 +49,7 @@ type Phase = 'idle' | 'running' | 'between' | 'complete';
 
 type Props = {
   initialDomainScore: number;
+  domainKey?: TrainingSessionResult['domainKey'];
   focusLabel?: string;
   moduleName?: string;
   onComplete?: (session: TrainingSessionResult) => void;
@@ -58,6 +59,7 @@ type Props = {
 
 export function AdaptivePrecisionTraining({
   initialDomainScore,
+  domainKey,
   focusLabel = 'Hand Precision',
   moduleName = 'Precision Transfer',
   onComplete,
@@ -242,6 +244,7 @@ export function AdaptivePrecisionTraining({
     if (roundIndex + 1 >= ROUNDS) {
       const averageScore = Math.round(nextScores.reduce((sum, value) => sum + value, 0) / nextScores.length);
       const result: TrainingSessionResult = {
+        domainKey,
         module: `${moduleName} · Adaptive`,
         focus: focusLabel,
         startingLevel,
